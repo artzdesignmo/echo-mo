@@ -35,7 +35,7 @@ body{ font-family:'Noto Sans TC','Noto Sans',sans-serif; background:var(--bg); c
 /* center stage */
 #stage{
   position:fixed; inset:0; z-index:40; display:flex; flex-direction:column;
-  align-items:center; justify-content:center; pointer-events:none; padding-bottom:120px;
+  align-items:center; justify-content:center; pointer-events:none; padding-bottom:30px;
 }
 #playBtn{
   pointer-events:auto; width:96px; height:96px; border-radius:50%;
@@ -53,14 +53,33 @@ body{ font-family:'Noto Sans TC','Noto Sans',sans-serif; background:var(--bg); c
 #nowPlaying .serif{ font-size:30px; letter-spacing:4px; color:var(--ink); display:block; font-style:italic; font-weight:300; }
 #npSub{ font-size:13px; letter-spacing:4px; color:var(--ink2); font-weight:300; margin-top:8px; display:block; }
 #sessInfo{ font-size:12px; letter-spacing:2px; color:var(--ink2); margin-top:10px; display:block; font-variant-numeric:tabular-nums; }
-/* bottom panel */
-.controls{
-  position:fixed; left:50%; transform:translateX(-50%); bottom:16px; z-index:50;
-  background:var(--panel); border:1px solid var(--line); border-radius:20px;
-  padding:14px 20px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
-  display:flex; flex-direction:column; gap:10px; width:min(680px,95vw);
-  max-height:44vh; overflow-y:auto; box-shadow:0 8px 32px rgba(0,0,0,.10);
+/* floating button + bottom sheet */
+#fab{
+  position:fixed; right:20px; bottom:20px; z-index:62;
+  width:48px; height:48px; border-radius:50%;
+  border:1px solid var(--line); background:var(--panel); cursor:pointer;
+  display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+  box-shadow:0 4px 18px rgba(0,0,0,.12);
+  transition:transform .2s;
 }
+#fab:hover{ transform:scale(1.07); }
+#sheet{
+  position:fixed; left:50%; bottom:0; z-index:60;
+  transform:translate(-50%,106%); transition:transform .38s cubic-bezier(.32,.72,.28,1);
+  background:var(--panel); border:1px solid var(--line); border-bottom:0;
+  border-radius:22px 22px 0 0;
+  padding:10px 20px 28px; backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+  display:flex; flex-direction:column; gap:10px; width:min(680px,96vw);
+  max-height:74vh; overflow-y:auto; box-shadow:0 -8px 40px rgba(0,0,0,.12);
+}
+#sheet.open{ transform:translate(-50%,0); }
+#grabber{ width:42px; height:4px; border-radius:2px; background:var(--line); margin:2px auto 6px; flex:none; }
+#scrim{
+  position:fixed; inset:0; z-index:59; background:rgba(0,0,0,.10);
+  opacity:0; pointer-events:none; transition:opacity .3s;
+}
+#scrim.show{ opacity:1; pointer-events:auto; }
 .sec .lbl{ font-size:10px; color:var(--ink2); letter-spacing:3px; margin-bottom:7px; text-align:center; }
 .chips{ display:flex; gap:7px; justify-content:center; flex-wrap:wrap; }
 .chip{
@@ -89,7 +108,8 @@ footer a{ color:var(--ink2); pointer-events:auto; }
   .topbar{ padding:10px 14px; } .brand .t{ font-size:16px; }
   #playBtn{ width:78px; height:78px; }
   #stage{ padding-bottom:170px; }
-  .controls{ padding:12px 14px; bottom:10px; max-height:46vh; }
+  #sheet{ padding:10px 14px 24px; }
+  #fab{ right:14px; bottom:14px; }
   input[type=range]{ width:80px; }
   footer,#kbdHint{ display:none; }
 }
@@ -114,7 +134,10 @@ footer a{ color:var(--ink2); pointer-events:auto; }
     <span id="sessInfo"></span>
   </div>
 </div>
-<div class="controls">
+<button id="fab" aria-label="controls"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8a8a8e" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.3"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.3"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="7" cy="17" r="2.3"/></svg></button>
+<div id="scrim"></div>
+<div id="sheet">
+  <div id="grabber"></div>
   <div class="sec"><div class="lbl" id="lblMood">MOOD</div><div class="chips" id="moods"></div></div>
   <div class="sec"><div class="lbl" id="lblVoice">VOICE</div><div class="chips" id="voices"></div></div>
   <div class="sec"><div class="sliders">
@@ -459,6 +482,20 @@ function applyTheme(th){
 }
 document.querySelectorAll('.tbtn').forEach(b=>b.onclick=()=>applyTheme(b.dataset.th));
 try{const s=localStorage.getItem('echomo-theme');if(s)document.documentElement.dataset.theme=s;}catch(e){}
+/* floating panel */
+const fab=document.getElementById('fab'), sheet=document.getElementById('sheet'), scrim=document.getElementById('scrim');
+const fabIcons={
+  open:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8a8a8e" stroke-width="1.8" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><circle cx="9" cy="7" r="2.3"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2.3"/><line x1="4" y1="17" x2="20" y2="17"/><circle cx="7" cy="17" r="2.3"/></svg>',
+  close:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8a8a8e" stroke-width="1.8" stroke-linecap="round"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>'
+};
+function toggleSheet(open){
+  const will=open!==undefined?open:!sheet.classList.contains('open');
+  sheet.classList.toggle('open',will);
+  scrim.classList.toggle('show',will);
+  fab.innerHTML=will?fabIcons.close:fabIcons.open;
+}
+fab.onclick=()=>toggleSheet();
+scrim.onclick=()=>toggleSheet(false);
 /* keyboard */
 document.addEventListener('keydown',e=>{
   if(e.target!==document.body) return;
