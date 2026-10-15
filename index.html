@@ -164,7 +164,7 @@ const STR={
         {n:'Dawn',d:'warm morning light'},{n:'Dusk',d:'amber hour'},
         {n:'Night',d:'deep indigo stillness'},{n:'Zen',d:'still water, single stone'},
         {n:'Ocean',d:'slow rolling waves'},{n:'Forest',d:'morning birdsong'}],
-      voices:[{n:'Music Box'},{n:'Soft Piano'},{n:'Glass'}]},
+      voices:[{n:'Music Box'},{n:'Soft Piano'},{n:'Glass'},{n:'Strings'},{n:'Flute'},{n:'Kalimba'},{n:'Temple Bell'},{n:'Harp'}]},
   zh:{sub:'每一個音符都由代碼寫成',foot:'每一個音符都由代碼寫成',
       tempo:'速度',density:'密度',vol:'音量',
       mood:'心境',voice:'音色',session:'時段',preset:'預設',
@@ -176,7 +176,7 @@ const STR={
         {n:'晨',d:'溫暖的晨光'},{n:'暮',d:'琥珀色的黃昏'},
         {n:'夜',d:'深藍的靜'},{n:'禪',d:'靜水中的一顆石'},
         {n:'海',d:'緩緩的浪'},{n:'森',d:'清晨的鳥鳴'}],
-      voices:[{n:'音樂盒'},{n:'柔鋼琴'},{n:'玻璃'}]}
+      voices:[{n:'音樂盒'},{n:'柔鋼琴'},{n:'玻璃'},{n:'弦樂'},{n:'長笛'},{n:'卡林巴'},{n:'梵鐘'},{n:'豎琴'}]}
 };
 let lang='en';
 const t=k=>STR[lang][k];
@@ -199,6 +199,11 @@ const VOICES=[
   {id:'musicbox', osc:[['sine',1,1],['triangle',0.12,2]], atk:0.025, dec:1.0},
   {id:'piano', osc:[['triangle',1,1],['sine',0.28,2],['sine',0.09,3]], atk:0.008, dec:0.65},
   {id:'glass', osc:[['sine',1,1],['sine',0.35,2.01]], atk:0.06, dec:1.7},
+  {id:'strings', osc:[['sawtooth',0.65,1],['sawtooth',0.38,1.006]], atk:0.28, dec:1.3, cutoff:1400},
+  {id:'flute', osc:[['sine',1,1],['sine',0.14,2]], atk:0.09, dec:1.1, vib:{rate:5.2,depth:0.006}},
+  {id:'kalimba', osc:[['sine',1,1],['sine',0.30,4.2],['sine',0.12,9.3]], atk:0.005, dec:0.55},
+  {id:'bell', osc:[['sine',1,1],['sine',0.5,2.76],['sine',0.25,5.4]], atk:0.01, dec:2.2},
+  {id:'harp', osc:[['triangle',0.8,1],['sine',0.3,2]], atk:0.005, dec:0.9, cutoff:2600},
 ];
 let curMood=0, curVoice=0;
 /* ================= canvas ================= */
@@ -230,11 +235,27 @@ function playNote(freq,time,dur,vol){
   g.gain.setValueAtTime(0.0001,time);
   g.gain.exponentialRampToValueAtTime(Math.max(0.0012,vol),time+V.atk);
   g.gain.exponentialRampToValueAtTime(0.0001,time+dur*V.dec+0.4);
+  let bus=g;
+  if(V.cutoff){
+    const flt=AC.createBiquadFilter();flt.type='lowpass';flt.frequency.value=V.cutoff;flt.Q.value=0.4;
+    flt.connect(g);bus=flt;
+  }
+  const oscs=[];
   for(const [type,mix,mult] of V.osc){
     const o=AC.createOscillator();o.type=type;o.frequency.value=freq*mult;
     const og=AC.createGain();og.gain.value=mix;
-    o.connect(og);og.connect(g);
+    o.connect(og);og.connect(bus);
     o.start(time);o.stop(time+dur*V.dec+0.6);
+    oscs.push(o);
+  }
+  if(V.vib){
+    const lfo=AC.createOscillator();lfo.frequency.value=V.vib.rate;
+    const lg=AC.createGain();
+    lg.gain.setValueAtTime(0.0001,time);
+    lg.gain.linearRampToValueAtTime(freq*V.vib.depth,time+Math.min(0.4,dur*0.3));
+    lfo.connect(lg);
+    for(const o of oscs) lg.connect(o.frequency);
+    lfo.start(time);lfo.stop(time+dur*V.dec+0.6);
   }
   g.connect(master);g.connect(verb);
 }
